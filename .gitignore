@@ -1,0 +1,9 @@
+node_modules/
+dist-electron/
+.env
+data/
+CLOUDFLARE OFFICIAL API KEY.txt
+*.log
+.DS_Store
+*.exe
+public/downloads/

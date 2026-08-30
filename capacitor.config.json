@@ -1,0 +1,10 @@
+{
+  "appId": "com.nandu.imageflux",
+  "appName": "NANDU IMAGE FLUX",
+  "webDir": "public",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true,
+    "allowNavigation": ["*"]
+  }
+}

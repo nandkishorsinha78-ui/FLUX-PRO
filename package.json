@@ -1,0 +1,65 @@
+{
+  "name": "nandu-image-flux",
+  "version": "1.0.0",
+  "description": "NANDU IMAGE FLUX - Ultra-Fast 1024x1024 HDR Image Generator",
+  "main": "electron-main.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "desktop:start": "electron .",
+    "build:win": "electron-builder --win nsis --x64"
+  },
+  "build": {
+    "appId": "com.nandu.imageflux",
+    "productName": "NANDU IMAGE FLUX",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "package.json",
+      "server.js",
+      "electron-main.js",
+      "public/**/*",
+      "assets/**/*",
+      ".env"
+    ],
+    "icon": "assets/logo/windows/app.ico",
+    "win": {
+      "icon": "assets/logo/windows/app.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NANDU IMAGE FLUX",
+      "installerIcon": "assets/logo/windows/app.ico",
+      "uninstallerIcon": "assets/logo/windows/app.ico",
+      "installerHeaderIcon": "assets/logo/windows/app.ico"
+    }
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "archiver": "^8.0.0",
+    "concurrently": "^10.0.5",
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3",
+    "jszip": "^3.10.1",
+    "wait-on": "^9.1.0"
+  }
+}

@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NANDU IMAGE FLUX — Cloudflare FLUX.1 Schnell (1024×1024 HDR)</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="shortcut icon" href="favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="background-glow"></div>
+  <div class="background-grid"></div>
+
+  <!-- ========================================================
+       1. MANDATORY AUTHENTICATION SCREEN (VISITOR GATEWAY)
+  ======================================================== -->
+  <div class="auth-screen-overlay" id="authScreen">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-brand-badge">
+          <img src="logo.png" alt="NANDU FLUX Logo" class="brand-logo-img">
+          <span class="auth-brand-name">NANDU IMAGE FLUX</span>
+        </div>
+        <h2 id="authTitle">Create Your Account</h2>
+        <p id="authSubtitle">Sign up to access your private studio and generate 1024×1024 HDR images with Cloudflare FLUX.1 Schnell.</p>
+      </div>
+
+      <!-- Auth Form (Sign Up First with direct auto-login) -->
+      <form id="authForm" class="auth-form" onsubmit="return false;" novalidate>
+        <div class="form-group">
+          <label for="authEmail">Email Address (Gmail)</label>
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <input type="email" id="authEmail" placeholder="youremail@gmail.com" required autocomplete="email">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="label-row">
+            <label for="authPassword">Password</label>
+            <a href="#" class="forgot-link hidden" id="forgotPasswordLink">Forgot?</a>
+          </div>
+          <div class="input-wrapper input-with-action">
+            <svg class="input-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="password" id="authPassword" placeholder="••••••••" required autocomplete="current-password">
+            <button type="button" class="field-btn" id="toggleAuthPassBtn" aria-label="Toggle password visibility" title="Show/hide password">
+              <span id="authPassIcon">👁️</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="auth-error hidden" id="authError"></div>
+
+        <button type="submit" class="btn-auth-submit" id="authSubmitBtn">
+          <span>Sign Up</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </form>
+
+      <div class="auth-toggle-row">
+        <span id="authToggleText">Already have an account?</span>
+        <button type="button" class="btn-link" id="authToggleBtn">Sign In</button>
+      </div>
+
+      <div class="server-config-trigger-row">
+        <button type="button" class="btn-server-config" id="openServerConfigBtn">⚙️ Server Connection Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Server Connection Config Modal -->
+  <div class="modal-backdrop hidden" id="serverModalBackdrop"></div>
+  <div class="modal hidden" id="serverConfigModal">
+    <div class="modal-header">
+      <h3>🌐 Server Host Configuration</h3>
+      <button class="modal-close" id="serverModalClose">&times;</button>
+    </div>
+    <div class="modal-body" style="gap:14px;">
+      <p style="font-size:12px;color:#94a3b8;line-height:1.4;">
+        When running inside an Android APK or on a local network, specify your host computer's backend IP address (e.g. <code>http://192.168.1.50:3000</code> or <code>http://10.0.2.2:3000</code>).
+      </p>
+
+      <div class="form-group">
+        <label for="serverUrlInput">Backend Server Base URL</label>
+        <div class="input-wrapper">
+          <svg class="input-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <input type="url" id="serverUrlInput" placeholder="http://10.0.2.2:3000 or http://localhost:3000">
+        </div>
+      </div>
+
+      <div class="preset-buttons-row" style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button type="button" class="btn-preset" id="presetEmulatorBtn">Android Emulator (10.0.2.2)</button>
+        <button type="button" class="btn-preset" id="presetLocalhostBtn">Localhost (localhost)</button>
+        <button type="button" class="btn-preset" id="presetClearBtn">Auto / Reset</button>
+      </div>
+
+      <button type="button" class="btn-primary" id="saveServerUrlBtn" style="width:100%;margin-top:8px;">
+        <span>Save Server URL</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       2. PROTECTED MAIN APPLICATION LAYOUT (AFTER LOGIN)
+  ======================================================== -->
+  <div class="app-layout hidden" id="mainAppLayout">
+    
+    <!-- LEFT-HAND SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <img src="logo.png" alt="NANDU FLUX Logo" class="brand-logo-img">
+          <div class="brand-text">
+            <h3>NANDU IMAGE</h3>
+            <span class="brand-sub">FLUX STUDIO</span>
+          </div>
+        </div>
+        <button class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Toggle Sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+      </div>
+
+      <div class="sidebar-content">
+        <!-- 1. GALLERY NAV SECTION (Prominent at top) -->
+        <div class="sidebar-section">
+          <div class="nav-item active" id="navGalleryBtn">
+            <div class="nav-item-left">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span>Gallery</span>
+            </div>
+            <span class="sidebar-badge" id="sidebarGalleryCount">0</span>
+          </div>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <!-- 2. OFFICIAL CLOUDFLARE API CONFIGURATION -->
+        <div class="sidebar-section api-config-section">
+          <div class="section-title-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <h4>Cloudflare API</h4>
+          </div>
+
+          <!-- Connection Status Pill -->
+          <div class="connection-status-pill" id="statusPill">
+            <span class="status-dot disconnected" id="statusDot"></span>
+            <span class="status-pill-text" id="statusPillText">Checking Status...</span>
+          </div>
+
+          <!-- ACTIVE CONNECTED VIEW (When Cloudflare is Connected) -->
+          <div class="connected-credentials-card hidden" id="connectedCard">
+            <div class="conn-header-row">
+              <span class="conn-badge">✓ Cloudflare Connected</span>
+            </div>
+            <div class="credential-row">
+              <span class="cred-label">Cloudflare Account</span>
+              <span class="cred-val">Connected</span>
+            </div>
+            <div class="credential-row">
+              <span class="cred-label">Account ID:</span>
+              <span class="cred-masked" id="displayAccountId">••••••••••••</span>
+            </div>
+            <div class="credential-row">
+              <span class="cred-label">API Token:</span>
+              <span class="cred-masked" id="displayApiKey">••••••••••••</span>
+            </div>
+            <div class="credential-row">
+              <span class="cred-label">Model Target:</span>
+              <code class="cred-model">@cf/black-forest-labs/flux-1-schnell</code>
+            </div>
+
+            <div class="connected-actions">
+              <button type="button" class="btn-sidebar-secondary" id="testConnectedBtn">
+                <span>🔌</span> Test Connection
+              </button>
+              <button type="button" class="btn-sidebar-secondary" id="updateCredentialsBtn">
+                <span>✏️</span> Update Credentials
+              </button>
+              <button type="button" class="btn-sidebar-danger" id="removeCredentialsBtn">
+                <span>🗑️</span> Remove Credentials
+              </button>
+            </div>
+          </div>
+
+          <!-- FIRST-TIME / SETUP FORM -->
+          <div class="setup-container" id="setupContainer">
+            <div class="cf-helper-card">
+              <div class="helper-title-row">
+                <span class="helper-icon">🌐</span>
+                <span class="helper-title">Get Cloudflare Credentials</span>
+              </div>
+              <p class="helper-sub">Direct official Cloudflare links to obtain your legitimate credentials:</p>
+              
+              <div class="helper-links-list">
+                <a href="https://www.cloudflare.com/" target="_blank" rel="noopener noreferrer" class="cf-official-link">
+                  <span class="link-label">Create / Sign In to Cloudflare</span>
+                  <span class="link-arrow">↗</span>
+                </a>
+                <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer" class="cf-official-link highlight-link">
+                  <span class="link-label">Get Cloudflare API Token</span>
+                  <span class="link-arrow">↗</span>
+                </a>
+                <a href="https://developers.cloudflare.com/fundamentals/account/find-account-and-zone-ids/" target="_blank" rel="noopener noreferrer" class="cf-official-link">
+                  <span class="link-label">Find Cloudflare Account ID</span>
+                  <span class="link-arrow">↗</span>
+                </a>
+              </div>
+            </div>
+
+            <form id="apiConfigForm" class="config-form" onsubmit="return false;">
+              <div class="form-intro">
+                <h5>Connect Your Cloudflare Account</h5>
+                <p class="config-desc">Connect your official Cloudflare account <strong>once</strong>. Credentials are encrypted and remembered across sessions.</p>
+              </div>
+
+              <div class="form-group">
+                <label for="apiKeyInput">Cloudflare API Token</label>
+                <div class="input-with-action">
+                  <input type="password" id="apiKeyInput" placeholder="Paste your Cloudflare API Token..." autocomplete="off" spellcheck="false">
+                  <button type="button" class="field-btn" id="toggleKeyVisibilityBtn" title="Show/Hide Token">
+                    <span id="keyVisibilityIcon">👁️</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="accountIdInput">Cloudflare Account ID</label>
+                <input type="text" id="accountIdInput" placeholder="Paste your Cloudflare Account ID..." autocomplete="off" spellcheck="false">
+              </div>
+
+              <div class="model-info-box">
+                <span class="model-label">Official Model Target:</span>
+                <code class="model-code">@cf/black-forest-labs/flux-1-schnell</code>
+              </div>
+
+              <div class="form-actions-row">
+                <button type="button" class="btn-sidebar-primary" id="saveCredentialsBtn">
+                  <span>💾</span> Save & Verify
+                </button>
+                <button type="button" class="btn-sidebar-secondary hidden" id="cancelUpdateBtn">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <p class="status-message" id="statusMessage">Cloudflare credentials are verified against the official Workers AI API before connecting.</p>
+        </div>
+      </div>
+
+      <!-- 3. AUTHENTICATED USER PROFILE & LOGOUT FOOTER -->
+      <div class="sidebar-footer user-profile-footer">
+        <div class="user-profile-card">
+          <div class="user-avatar" id="userAvatar">U</div>
+          <div class="user-info">
+            <span class="user-name" id="userName">User Name</span>
+            <span class="user-email" id="userEmail">user@example.com</span>
+          </div>
+          <button type="button" class="btn-signout" id="signOutBtn" title="Sign Out">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="main-content-wrapper">
+      
+      <!-- Top Mobile Toggle Bar & Download Center -->
+      <div class="top-nav-bar">
+        <button class="mobile-toggle-btn" id="mobileSidebarToggle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <span>Menu & Profile</span>
+        </button>
+        <div class="top-brand">
+          <img src="logo.png" alt="NANDU FLUX Logo" class="brand-logo-img-sm">
+          <span>NANDU IMAGE FLUX</span>
+        </div>
+
+      </div>
+
+      <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+          <div class="badge-pill">
+            <span class="pulse-dot"></span>
+            <span>💎 MAXIMUM PRECISION PIPELINE ACTIVE</span>
+          </div>
+          <h1 class="logo-title">NANDU IMAGE <span class="gradient-text">FLUX</span></h1>
+          <p class="subtitle">Official <strong>@cf/black-forest-labs/flux-1-schnell</strong> 1024×1024 Text-to-Image Generation. Enter your exact prompt below.</p>
+        </header>
+
+        <!-- Main Generator Card -->
+        <main class="generator-card">
+          <div class="prompt-section">
+            <label for="prompt" class="section-label">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              Enter Your Exact Prompt
+            </label>
+            <div class="textarea-wrapper">
+              <textarea id="prompt" placeholder="Type your exact text-to-image prompt here... (e.g. A hyperrealistic royal Bengal tiger with crystal glowing eyes standing on a snowy mountain peak at dusk, cinematic lighting)"></textarea>
+              <button id="clearBtn" class="clear-btn" title="Clear prompt">✕</button>
+            </div>
+          </div>
+
+          <!-- Specs Row -->
+          <div class="settings-grid">
+            <div class="setting-item">
+              <label class="setting-label">Pipeline Mode</label>
+              <div class="mode-indicator precision-badge">
+                <span>💎 Maximum Precision (~2.5s) — Full 4–Step Distillation</span>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <label class="setting-label">Resolution & Exact Fidelity</label>
+              <div class="mode-indicator">
+                <span class="lock-icon">🔒</span>
+                <span>1024 × 1024 HDR (Verbatim Exact Prompt)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons Group -->
+          <div class="action-row action-buttons-group">
+            <button id="generateBtn" class="generate-btn">
+              <span class="btn-icon">⚡</span>
+              <span class="btn-text">GENERATE IMAGE (1024×1024)</span>
+            </button>
+            <button id="regenerateBtn" class="regenerate-btn hidden" title="Generate a fresh variation with the exact same prompt">
+              <span class="btn-icon">🔄</span>
+              <span class="btn-text">REGENERATE IMAGE</span>
+            </button>
+          </div>
+
+          <!-- Status / Loader Container -->
+          <div id="loader" class="loader-card hidden">
+            <div class="spinner-ring"></div>
+            <div class="loader-content">
+              <div class="loader-header-row">
+                <h4 id="loaderTitle">Rendering with Flux.1 Schnell...</h4>
+                <span id="liveTimer" class="timer-badge">0.0s</span>
+              </div>
+              <p id="loaderSubtitle">Synthesizing 1024×1024 image via @cf/black-forest-labs/flux-1-schnell...</p>
+              <div class="progress-bar-container">
+                <div class="progress-bar-fill" id="progressBar"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Attention / Warning Banner (For invalid credentials) -->
+          <div id="attentionNotice" class="attention-banner hidden">
+            <span class="warning-icon">⚠️</span>
+            <div class="attention-content">
+              <strong id="attentionTitle">Your Cloudflare connection needs attention.</strong>
+              <p id="attentionMessage">Please update your Cloudflare API credentials in the left sidebar to continue generating.</p>
+            </div>
+            <button type="button" class="btn-attention" id="openSidebarFixBtn">Update Credentials</button>
+          </div>
+
+          <!-- LATEST GENERATED IMAGE PREVIEW CONTAINER (ONLY The Latest Image) -->
+          <div id="latestResultContainer" class="latest-result-container hidden">
+            <div class="latest-result-header">
+              <div class="latest-badge">
+                <span class="sparkle-icon">✨</span>
+                <span>Latest Generated Image</span>
+              </div>
+              <div class="latest-meta" id="latestMetaInfo">
+                <span id="latestDurationBadge" class="duration-pill">💎 2.4s</span>
+                <span class="format-pill">1024×1024 HDR</span>
+              </div>
+            </div>
+
+            <div class="latest-image-frame" id="latestImageFrame">
+              <img id="latestResultImg" src="" alt="Latest Generated Flux Image" loading="eager">
+              <div class="latest-image-overlay">
+                <button class="latest-fullscreen-btn" id="latestFullscreenBtn" title="View Fullscreen">
+                  🔍 View 1024×1024 Fullscreen
+                </button>
+              </div>
+            </div>
+
+            <div class="latest-prompt-box">
+              <span class="latest-prompt-label">Exact Prompt:</span>
+              <p id="latestPromptText" class="latest-prompt-text"></p>
+            </div>
+
+            <div class="latest-actions-bar">
+              <button class="btn-latest-action" id="latestDownloadBtn">
+                <span>⬇</span> Download 1024×1024
+              </button>
+              <button class="btn-latest-action" id="latestRegenerateBtn">
+                <span>🔄</span> Regenerate
+              </button>
+              <button class="btn-latest-action" id="latestCopyPromptBtn">
+                <span>📋</span> Copy Prompt
+              </button>
+            </div>
+          </div>
+        </main>
+
+        <!-- Full Gallery Section (Opened via Sidebar "Gallery" or scrolled to) -->
+        <section class="results-section hidden" id="gallerySection">
+          <div class="section-header">
+            <div class="gallery-title-group">
+              <div class="gallery-title-row">
+                <h2>All Saved Creations</h2>
+                <button type="button" class="btn-close-gallery" id="closeGallerySectionBtn" title="Close Gallery View">✕ Close Gallery</button>
+              </div>
+              <span class="gallery-subtext">All images you have generated are saved here</span>
+            </div>
+            <div class="gallery-header-actions">
+              <span id="galleryCount" class="counter-badge">0 Images</span>
+              <button class="btn-clear-gallery hidden" id="clearGalleryBtn" title="Clear all saved gallery images">Clear Gallery</button>
+            </div>
+          </div>
+
+          <div class="gallery-grid" id="gallery">
+            <div class="empty-state" id="emptyState">
+              <div class="empty-icon">🖼️</div>
+              <h3>No Saved Images Yet</h3>
+              <p>Type a prompt above and click <strong>Generate Image</strong>. Every image will automatically be saved to your private gallery.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Preview -->
+  <div id="previewModal" class="modal hidden">
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div class="modal-image-wrapper">
+        <img id="modalImg" src="" alt="Flux Preview">
+      </div>
+      <div class="modal-info">
+        <div class="modal-badge-row">
+          <span class="modal-badge">💎 MAXIMUM PRECISION 1024×1024 HDR</span>
+          <span id="modalDuration" class="modal-badge duration-badge">⚡ 2.4s</span>
+        </div>
+        <p id="modalPrompt" class="modal-prompt-text"></p>
+        <div class="modal-actions">
+          <button id="modalDownloadBtn" class="btn-secondary">⬇ Download 1024×1024 Image</button>
+          <button id="modalRegenerateBtn" class="btn-secondary btn-regenerate-modal">🔄 Regenerate This Prompt</button>
+          <button id="modalDeleteBtn" class="btn-secondary btn-delete-modal">🗑️ Delete From Gallery</button>
+          <button id="modalCopyBtn" class="btn-secondary">📋 Copy Exact Prompt</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
