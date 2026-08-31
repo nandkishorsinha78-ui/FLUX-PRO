@@ -56,6 +56,8 @@ app.use(express.static(join(__dirname, 'public')));
 
 // Model & Data Paths
 const MODEL_NAME = '@cf/black-forest-labs/flux-1-schnell';
+const DEFAULT_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
+const DEFAULT_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN || '';
 const DATA_DIR = process.env.VERCEL ? '/tmp/data' : (process.env.APP_DATA_DIR || join(__dirname, 'data'));
 const USERS_FILE = join(DATA_DIR, 'users.json');
 const SESSIONS_FILE = join(DATA_DIR, 'sessions.json');
@@ -597,7 +599,7 @@ app.post('/api/auth/signout', (req, res) => {
 
 app.get('/api/user/status', requireAuth, (req, res) => {
   const userId = req.user.userId;
-  const vault = loadData(VAULT_FILE);
+  const vault = getCachedVault();
 
   if (vault[userId]) {
     const userRecord = vault[userId];
@@ -612,8 +614,8 @@ app.get('/api/user/status', requireAuth, (req, res) => {
   }
 
   // Fallback to server pre-configured credentials if present
-  const defaultAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const defaultApiKey = process.env.CLOUDFLARE_API_TOKEN;
+  const defaultAccountId = process.env.CLOUDFLARE_ACCOUNT_ID || DEFAULT_ACCOUNT_ID;
+  const defaultApiKey = process.env.CLOUDFLARE_API_TOKEN || DEFAULT_API_TOKEN;
   if (defaultAccountId && defaultApiKey) {
     return res.json({
       configured: true,
@@ -647,13 +649,13 @@ app.post('/api/user/save-credentials', requireAuth, async (req, res) => {
     const testUrl = getCloudflareModelUrl(cleanAccountId);
     const testRes = await fetch(testUrl, {
       method: 'POST',
+      signal: AbortSignal.timeout(20000),
       headers: {
         'Authorization': `Bearer ${cleanKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        prompt: 'auth verification check',
-        steps: 1
+        prompt: 'auth verification check'
       })
     });
 
@@ -690,7 +692,7 @@ app.post('/api/user/save-credentials', requireAuth, async (req, res) => {
 
     // 2. Encrypt and save securely in isolated server vault for this authenticated user
     const encryptedKey = encryptSecret(cleanKey);
-    const vault = loadData(VAULT_FILE);
+    const vault = getCachedVault();
 
     vault[userId] = {
       accountId: cleanAccountId,
@@ -721,7 +723,7 @@ app.post('/api/user/save-credentials', requireAuth, async (req, res) => {
 
 app.post('/api/user/remove-credentials', requireAuth, (req, res) => {
   const userId = req.user.userId;
-  const vault = loadData(VAULT_FILE);
+  const vault = getCachedVault();
   if (vault[userId]) {
     delete vault[userId];
     saveData(VAULT_FILE, vault);
@@ -732,7 +734,7 @@ app.post('/api/user/remove-credentials', requireAuth, (req, res) => {
 app.post('/api/user/test-connection', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const vault = loadData(VAULT_FILE);
+    const vault = getCachedVault();
 
     let accountId = null;
     let apiKey = null;
@@ -740,9 +742,9 @@ app.post('/api/user/test-connection', requireAuth, async (req, res) => {
     if (vault[userId]) {
       accountId = vault[userId].accountId;
       apiKey = decryptSecret(vault[userId].encryptedApiKey);
-    } else if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN) {
-      accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-      apiKey = process.env.CLOUDFLARE_API_TOKEN;
+    } else {
+      accountId = process.env.CLOUDFLARE_ACCOUNT_ID || DEFAULT_ACCOUNT_ID;
+      apiKey = process.env.CLOUDFLARE_API_TOKEN || DEFAULT_API_TOKEN;
     }
 
     if (!accountId || !apiKey) {
@@ -755,13 +757,13 @@ app.post('/api/user/test-connection', requireAuth, async (req, res) => {
     const testUrl = getCloudflareModelUrl(accountId);
     const testRes = await fetch(testUrl, {
       method: 'POST',
+      signal: AbortSignal.timeout(20000),
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        prompt: 'test connection ping',
-        steps: 1
+        prompt: 'test connection ping'
       })
     });
 
@@ -792,7 +794,7 @@ app.post('/api/user/test-connection', requireAuth, async (req, res) => {
 
 app.get('/api/user/gallery', requireAuth, (req, res) => {
   const userId = req.user.userId;
-  const galleries = loadData(GALLERIES_FILE);
+  const galleries = getCachedGalleries();
   const userGallery = galleries[userId] || [];
   return res.json({ gallery: userGallery });
 });
@@ -802,7 +804,7 @@ app.post('/api/user/gallery/delete', requireAuth, (req, res) => {
   const { imageId } = req.body;
   if (!imageId) return res.status(400).json({ error: 'Missing imageId.' });
 
-  const galleries = loadData(GALLERIES_FILE);
+  const galleries = getCachedGalleries();
   if (galleries[userId]) {
     galleries[userId] = galleries[userId].filter(item => item.id !== imageId);
     saveData(GALLERIES_FILE, galleries);
@@ -812,7 +814,7 @@ app.post('/api/user/gallery/delete', requireAuth, (req, res) => {
 
 app.post('/api/user/gallery/clear', requireAuth, (req, res) => {
   const userId = req.user.userId;
-  const galleries = loadData(GALLERIES_FILE);
+  const galleries = getCachedGalleries();
   if (galleries[userId]) {
     galleries[userId] = [];
     saveData(GALLERIES_FILE, galleries);
@@ -824,7 +826,7 @@ app.post('/api/user/gallery/clear', requireAuth, (req, res) => {
 // 5. PROTECTED IMAGE GENERATION ENDPOINT
 // -------------------------------------------------------------
 
-app.post('/generate', requireAuth, async (req, res) => {
+app.post('/api/generate', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { prompt } = req.body;
@@ -844,8 +846,8 @@ app.post('/generate', requireAuth, async (req, res) => {
       apiKey = decryptSecret(vault[userId].encryptedApiKey);
     } else {
       // Fallback to server pre-configured credentials
-      accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-      apiKey = process.env.CLOUDFLARE_API_TOKEN;
+      accountId = process.env.CLOUDFLARE_ACCOUNT_ID || DEFAULT_ACCOUNT_ID;
+      apiKey = process.env.CLOUDFLARE_API_TOKEN || DEFAULT_API_TOKEN;
     }
 
     if (!apiKey || !accountId) {
@@ -858,17 +860,17 @@ app.post('/generate', requireAuth, async (req, res) => {
     const tStart = performance.now();
     const url = getCloudflareModelUrl(accountId);
 
-    // Optimized Cloudflare Workers AI fetch with keep-alive socket reuse & exactly 4 inference steps
+    // Optimized Cloudflare Workers AI fetch with keep-alive socket reuse & timeout
     const response = await fetch(url, {
       method: 'POST',
+      signal: AbortSignal.timeout(60000),
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'Connection': 'keep-alive'
       },
       body: JSON.stringify({
-        prompt: exactPrompt,
-        steps: 4 // Exact 4-step distillation trajectory
+        prompt: exactPrompt
       })
     });
 
@@ -900,7 +902,6 @@ app.post('/generate', requireAuth, async (req, res) => {
         engine: `Cloudflare Flux.1 Schnell (${MODEL_NAME})`,
         format: '1024x1024 HDR',
         duration: `${duration}s`,
-        steps: 4,
         timestamp: new Date().toLocaleString()
       };
 
@@ -925,7 +926,6 @@ app.post('/generate', requireAuth, async (req, res) => {
         engine: `Cloudflare Flux.1 Schnell (${MODEL_NAME})`,
         format: '1024x1024 HDR',
         duration: `${duration}s`,
-        steps: 4,
         id: imageRecord.id,
         timestamp: imageRecord.timestamp
       });
@@ -969,7 +969,7 @@ app.all('/api/*', (req, res) => {
 
 // Express Error Handling Middleware for API routes (Ensures JSON is always returned)
 app.use((err, req, res, next) => {
-  if (req.path.startsWith('/api') || req.path === '/generate') {
+  if (req.path.startsWith('/api')) {
     console.error('API Error Middleware:', err);
     return res.status(err.status || 500).json({
       success: false,

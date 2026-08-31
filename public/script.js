@@ -7,7 +7,7 @@ const STORAGE_KEYS = {
   SERVER_URL: 'nandu_flux_server_url_v1'
 };
 
-const DEFAULT_CF_ACCOUNT_ID = '3c980ca658457711c89c992df851f443';
+const DEFAULT_CF_ACCOUNT_ID = '';
 const DEFAULT_CF_API_TOKEN = '';
 const MODEL_NAME = '@cf/black-forest-labs/flux-1-schnell';
 
@@ -63,13 +63,13 @@ async function generateDirectFromCloudflare(exactPrompt) {
 
   const response = await fetch(url, {
     method: 'POST',
+    signal: AbortSignal.timeout(60000),
     headers: {
       'Authorization': `Bearer ${apiToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      prompt: exactPrompt,
-      steps: 4
+      prompt: exactPrompt
     })
   });
 
@@ -112,7 +112,6 @@ async function generateDirectFromCloudflare(exactPrompt) {
     engine: `Cloudflare Flux.1 Schnell (${MODEL_NAME})`,
     format: '1024x1024 HDR',
     duration: `${duration}s`,
-    steps: 4,
     timestamp: new Date().toLocaleString()
   };
 }
@@ -612,6 +611,9 @@ saveCredentialsBtn.addEventListener('click', async () => {
     const data = await parseJsonResponse(res);
 
     if (res.ok && data.success) {
+      localStorage.setItem('nandu_flux_cf_account_id', accountId);
+      localStorage.setItem('nandu_flux_cf_api_token', apiKey);
+
       displayAccountId.innerText = data.maskedAccountId;
       displayApiKey.innerText = data.maskedApiKey;
 
@@ -642,6 +644,8 @@ saveCredentialsBtn.addEventListener('click', async () => {
 removeCredentialsBtn.addEventListener('click', async () => {
   if (confirm('Disconnect Cloudflare account and remove credentials for this user?')) {
     try {
+      localStorage.removeItem('nandu_flux_cf_account_id');
+      localStorage.removeItem('nandu_flux_cf_api_token');
       await authFetch('/api/user/remove-credentials', { method: 'POST' });
       await checkUserCredentialStatus();
       showToast('🗑️ Cloudflare account disconnected.');
@@ -950,7 +954,7 @@ async function executeGeneration(promptText, isRegeneration = false) {
 
   let data = null;
   try {
-    const response = await authFetch('/generate', {
+    const response = await authFetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: exactPrompt })
@@ -966,7 +970,7 @@ async function executeGeneration(promptText, isRegeneration = false) {
       throw new Error(data.error || 'Cloudflare generation returned an error');
     }
   } catch (err) {
-    console.warn('Backend server /generate unavailable or returned non-JSON. Executing direct Cloudflare AI call.', err.message);
+    console.warn('Backend server /api/generate unavailable or returned non-JSON. Executing direct Cloudflare AI call.', err.message);
     try {
       data = await generateDirectFromCloudflare(exactPrompt);
     } catch (directErr) {
