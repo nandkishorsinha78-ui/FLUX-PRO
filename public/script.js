@@ -15,12 +15,8 @@ function getApiBaseUrl() {
   const saved = localStorage.getItem(STORAGE_KEYS.SERVER_URL);
   if (saved && saved.trim()) return saved.trim().replace(/\/+$/, '');
 
-  const isAndroidOrCapacitor = window.Capacitor || 
-                               window.location.protocol === 'file:' || 
-                               (window.location.hostname === 'localhost' && window.location.port !== '3000') ||
-                               (navigator.userAgent && navigator.userAgent.includes('Android') && window.location.port !== '3000');
-
-  if (isAndroidOrCapacitor) {
+  // Only use emulator loopback if strictly inside local file/Capacitor on localhost
+  if (window.location.protocol === 'file:' || (window.Capacitor && window.location.hostname === 'localhost')) {
     return 'http://10.0.2.2:3000';
   }
 
