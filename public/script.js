@@ -963,19 +963,15 @@ async function executeGeneration(promptText, isRegeneration = false) {
     data = await parseJsonResponse(response);
 
     if (!response.ok || data.error) {
-      if (response.status === 401 && data.error.includes('Authentication required')) {
+      if (response.status === 401) {
         exitApplication();
         throw new Error('Your session expired. Please sign in again.');
       }
       throw new Error(data.error || 'Cloudflare generation returned an error');
     }
   } catch (err) {
-    console.warn('Backend server /api/generate unavailable or returned non-JSON. Executing direct Cloudflare AI call.', err.message);
-    try {
-      data = await generateDirectFromCloudflare(exactPrompt);
-    } catch (directErr) {
-      throw new Error(directErr.message);
-    }
+    console.error('API /api/generate error:', err);
+    throw new Error(err.message || 'Image generation failed. Please try again.');
   }
 
   try {

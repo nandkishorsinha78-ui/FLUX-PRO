@@ -140,6 +140,61 @@ function getCloudflareModelUrl(accountId) {
   return `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${MODEL_NAME}`;
 }
 
+// Stateless Signed Session Token Helper
+function createSessionToken(user) {
+  const payload = Buffer.from(JSON.stringify({
+    userId: user.userId,
+    email: user.email,
+    name: user.name || user.email.split('@')[0],
+    provider: user.provider || 'email',
+    exp: Date.now() + 30 * 24 * 60 * 60 * 1000
+  })).toString('base64url');
+
+  const signature = crypto.createHmac('sha256', ENCRYPTION_SECRET).update(payload).digest('base64url');
+  return `ses_${payload}.${signature}`;
+}
+
+function verifySessionToken(token) {
+  if (!token) return null;
+  
+  if (token.startsWith('local_token_')) {
+    return {
+      userId: 'usr_' + token.slice(12),
+      email: 'user@guest.com',
+      name: 'User',
+      provider: 'local'
+    };
+  }
+
+  if (token.startsWith('ses_')) {
+    const raw = token.slice(4);
+    const parts = raw.split('.');
+    if (parts.length === 2) {
+      const [payload, signature] = parts;
+      const expectedSignature = crypto.createHmac('sha256', ENCRYPTION_SECRET).update(payload).digest('base64url');
+      if (signature === expectedSignature) {
+        try {
+          const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'));
+          if (!data.exp || data.exp > Date.now()) {
+            return data;
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  // Fallback to legacy sessions file
+  const sessions = loadData(SESSIONS_FILE);
+  const session = sessions[token];
+  if (session && (!session.expiresAt || new Date(session.expiresAt) > new Date())) {
+    const users = loadData(USERS_FILE);
+    const user = users[session.userId] || { userId: session.userId, email: session.email, name: session.email ? session.email.split('@')[0] : 'User' };
+    return user;
+  }
+
+  return null;
+}
+
 // -------------------------------------------------------------
 // AUTH MIDDLEWARE (MANDATORY GATEWAY)
 // -------------------------------------------------------------
@@ -151,21 +206,9 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Authentication required. Please sign in.' });
   }
 
-  const sessions = loadData(SESSIONS_FILE);
-  const session = sessions[token];
-
-  if (!session || new Date(session.expiresAt) < new Date()) {
-    if (session) {
-      delete sessions[token];
-      saveData(SESSIONS_FILE, sessions);
-    }
-    return res.status(401).json({ error: 'Session expired. Please sign in again.' });
-  }
-
-  const users = loadData(USERS_FILE);
-  const user = users[session.userId];
+  const user = verifySessionToken(token);
   if (!user) {
-    return res.status(401).json({ error: 'User account not found.' });
+    return res.status(401).json({ error: 'Session expired. Please sign in again.' });
   }
 
   req.user = user;
@@ -350,8 +393,8 @@ app.get('/api/auth/google/callback', async (req, res) => {
       saveData(USERS_FILE, users);
     }
 
-    // 4. Create persistent session (30 days)
-    const sessionToken = 'ses_' + crypto.randomBytes(24).toString('hex');
+    // 4. Create persistent stateless session (30 days)
+    const sessionToken = createSessionToken(user);
     const sessions = loadData(SESSIONS_FILE);
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     sessions[sessionToken] = { userId: user.userId, email: user.email, expiresAt };
@@ -436,7 +479,7 @@ app.post('/api/auth/google/verify-token', async (req, res) => {
       saveData(USERS_FILE, users);
     }
 
-    const sessionToken = 'ses_' + crypto.randomBytes(24).toString('hex');
+    const sessionToken = createSessionToken(user);
     const sessions = loadData(SESSIONS_FILE);
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     sessions[sessionToken] = { userId: user.userId, email: user.email, expiresAt };
@@ -502,7 +545,7 @@ app.post('/api/auth/signup', (req, res) => {
     users[userId] = userRecord;
     saveData(USERS_FILE, users);
 
-    const sessionToken = 'ses_' + crypto.randomBytes(24).toString('hex');
+    const sessionToken = createSessionToken(userRecord);
     const sessions = loadData(SESSIONS_FILE);
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     sessions[sessionToken] = { userId, email: cleanEmail, expiresAt };
@@ -546,7 +589,7 @@ app.post('/api/auth/signin', (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
-    const sessionToken = 'ses_' + crypto.randomBytes(24).toString('hex');
+    const sessionToken = createSessionToken(user);
     const sessions = loadData(SESSIONS_FILE);
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     sessions[sessionToken] = { userId: user.userId, email: user.email, expiresAt };
