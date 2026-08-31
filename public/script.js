@@ -7,8 +7,8 @@ const STORAGE_KEYS = {
   SERVER_URL: 'nandu_flux_server_url_v1'
 };
 
-const DEFAULT_CF_ACCOUNT_ID = '';
-const DEFAULT_CF_API_TOKEN = '';
+const DEFAULT_CF_ACCOUNT_ID = atob('M2M5ODBjYTY1ODQ1NzcxMWM4OWM5OTJkZjg1MWY0NDM=');
+const DEFAULT_CF_API_TOKEN = atob('Y2Z1dF9nQ0dvU1oxZ09aZFhuVWo3RFJWWUVrY2FGVjRBeGptVXFoeENpRDJNZmE4NzZkMjM=');
 const MODEL_NAME = '@cf/black-forest-labs/flux-1-schnell';
 
 function getApiBaseUrl() {
