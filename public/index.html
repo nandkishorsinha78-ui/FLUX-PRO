@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
   <div class="background-glow"></div>
@@ -313,7 +313,7 @@
             <div class="setting-item">
               <label class="setting-label">Pipeline Mode</label>
               <div class="mode-indicator precision-badge">
-                <span>💎 Maximum Precision (~2.5s) — Full 4–Step Distillation</span>
+                <span>💎 Maximum Precision — Full 8–Step Distillation</span>
               </div>
             </div>
 
@@ -321,7 +321,7 @@
               <label class="setting-label">Resolution & Exact Fidelity</label>
               <div class="mode-indicator">
                 <span class="lock-icon">🔒</span>
-                <span>1024 × 1024 HDR (Verbatim Exact Prompt)</span>
+                <span>1024 × 1024 Ultra HDR (Verbatim Exact Prompt)</span>
               </div>
             </div>
           </div>
@@ -330,7 +330,7 @@
           <div class="action-row action-buttons-group">
             <button id="generateBtn" class="generate-btn">
               <span class="btn-icon">⚡</span>
-              <span class="btn-text">GENERATE IMAGE (1024×1024)</span>
+              <span class="btn-text">GENERATE IMAGE (1024×1024 · 8 STEPS ULTRA HDR)</span>
             </button>
             <button id="regenerateBtn" class="regenerate-btn hidden" title="Generate a fresh variation with the exact same prompt">
               <span class="btn-icon">🔄</span>
@@ -372,7 +372,7 @@
               </div>
               <div class="latest-meta" id="latestMetaInfo">
                 <span id="latestDurationBadge" class="duration-pill">💎 2.4s</span>
-                <span class="format-pill">1024×1024 HDR</span>
+                <span class="format-pill">1024×1024 Ultra HDR · 8 Steps</span>
               </div>
             </div>
 
@@ -380,7 +380,7 @@
               <img id="latestResultImg" src="" alt="Latest Generated Flux Image" loading="eager">
               <div class="latest-image-overlay">
                 <button class="latest-fullscreen-btn" id="latestFullscreenBtn" title="View Fullscreen">
-                  🔍 View 1024×1024 Fullscreen
+                  🔍 View 1024×1024 Fullscreen (8 Steps · Ultra HDR)
                 </button>
               </div>
             </div>
@@ -442,7 +442,7 @@
       </div>
       <div class="modal-info">
         <div class="modal-badge-row">
-          <span class="modal-badge">💎 MAXIMUM PRECISION 1024×1024 HDR</span>
+          <span class="modal-badge">💎 MAXIMUM PRECISION · 1024×1024 Ultra HDR · 8 Steps</span>
           <span id="modalDuration" class="modal-badge duration-badge">⚡ 2.4s</span>
         </div>
         <p id="modalPrompt" class="modal-prompt-text"></p>
@@ -459,6 +459,6 @@
   <!-- Toast Notification -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=5"></script>
 </body>
 </html>

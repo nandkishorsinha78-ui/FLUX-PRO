@@ -54,15 +54,17 @@ async function generateDirectFromCloudflare(exactPrompt) {
   const accountId = localStorage.getItem('nandu_flux_cf_account_id') || DEFAULT_CF_ACCOUNT_ID;
   const apiToken = localStorage.getItem('nandu_flux_cf_api_token') || DEFAULT_CF_API_TOKEN;
 
-  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${MODEL_NAME}`;
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${MODEL_NAME}?num_steps=8&width=1024&height=1024`;
   const tStart = performance.now();
 
   const response = await fetch(url, {
     method: 'POST',
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(30000),
+    keepalive: true,
     headers: {
       'Authorization': `Bearer ${apiToken}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Accept': 'image/jpeg,application/json'
     },
     body: JSON.stringify({
       prompt: exactPrompt
@@ -84,6 +86,11 @@ async function generateDirectFromCloudflare(exactPrompt) {
 
   if (contentType.includes('application/json')) {
     const data = await response.json();
+    if (data && data.success === false) {
+      const errMsg = (data.errors && data.errors[0] && (data.errors[0].message || data.errors[0].code))
+        || 'Cloudflare rejected the request.';
+      throw new Error(`Cloudflare: ${errMsg}`);
+    }
     if (data.result && data.result.image) {
       imageDataUrl = `data:image/jpeg;base64,${data.result.image}`;
     }
@@ -95,10 +102,12 @@ async function generateDirectFromCloudflare(exactPrompt) {
       binary += String.fromCharCode(bytes[i]);
     }
     const base64 = btoa(binary);
-    imageDataUrl = `data:image/jpeg;base64,${base64}`;
+    if (base64 && base64.length > 100) {
+      imageDataUrl = `data:image/jpeg;base64,${base64}`;
+    }
   }
 
-  if (!imageDataUrl) throw new Error('Empty image payload received from Cloudflare Workers AI.');
+  if (!imageDataUrl) throw new Error('Empty image payload received from Cloudflare Workers AI. Try a shorter prompt.');
 
   const duration = ((performance.now() - tStart) / 1000).toFixed(2);
   return {
@@ -106,8 +115,9 @@ async function generateDirectFromCloudflare(exactPrompt) {
     image: imageDataUrl,
     prompt: exactPrompt,
     engine: `Cloudflare Flux.1 Schnell (${MODEL_NAME})`,
-    format: '1024x1024 HDR',
+    format: '1024x1024 Ultra HDR (8 Steps)',
     duration: `${duration}s`,
+    steps: 8,
     timestamp: new Date().toLocaleString()
   };
 }
@@ -751,7 +761,7 @@ function renderGallery() {
       <div class="card-details">
         <p class="card-prompt" title="${escapeHtml(item.prompt)}">${escapeHtml(item.prompt)}</p>
         <div class="card-footer">
-          <span class="engine-tag">💎 ${escapeHtml(item.duration || '2.4s')} | 1024×1024 HDR</span>
+          <span class="engine-tag">💎 ${escapeHtml(item.duration || '2.4s')} | 1024×1024 Ultra HDR (8 Steps)</span>
           <div class="card-actions">
             <button class="icon-btn regenerate-card-btn" data-id="${item.id}" title="Regenerate fresh image with this prompt">🔄</button>
             <button class="icon-btn download-card-btn" data-id="${item.id}" title="Download">⬇</button>
@@ -934,7 +944,7 @@ async function executeGeneration(promptText, isRegeneration = false) {
   generateBtn.innerHTML = `<span class="spinner-ring" style="width:20px;height:20px;border-width:2px;"></span> ${actionLabel}`;
   loader.classList.remove('hidden');
   if (attentionNotice) attentionNotice.classList.add('hidden');
-  
+
   // Stopwatch
   const startTime = performance.now();
   liveTimer.innerText = "0.0s";
@@ -949,6 +959,7 @@ async function executeGeneration(promptText, isRegeneration = false) {
   progressBar.style.animation = 'fastProgress 2.5s ease-out forwards';
 
   let data = null;
+  let genError = null;
   try {
     const response = await authFetch('/api/generate', {
       method: 'POST',
@@ -961,51 +972,53 @@ async function executeGeneration(promptText, isRegeneration = false) {
     if (!response.ok || data.error) {
       if (response.status === 401) {
         exitApplication();
-        throw new Error('Your session expired. Please sign in again.');
+        genError = new Error('Your session expired. Please sign in again.');
+      } else {
+        genError = new Error(data.error || `Cloudflare returned HTTP ${response.status}`);
       }
-      throw new Error(data.error || 'Cloudflare generation returned an error');
+    } else if (!data.image) {
+      genError = new Error('Cloudflare returned a successful response but no image payload.');
     }
   } catch (err) {
     console.error('API /api/generate error:', err);
-    throw new Error(err.message || 'Image generation failed. Please try again.');
+    genError = new Error(err.message || 'Image generation failed. Please try again.');
   }
 
   try {
+    if (genError) throw genError;
+
     const finalDuration = data.duration || `${((performance.now() - startTime) / 1000).toFixed(2)}s`;
 
     // 1. Save to all creations array (Full Gallery persistence)
-    let newImageItem = null;
-    if (data.image) {
-      newImageItem = {
-        id: data.id || Date.now(),
-        imageUrl: data.image,
-        prompt: data.prompt || exactPrompt,
-        engine: data.engine || 'Cloudflare Flux.1 Schnell',
-        format: data.format || '1024x1024 HDR',
-        duration: finalDuration,
-        steps: 4,
-        timestamp: data.timestamp || new Date().toLocaleString()
-      };
-      creations.unshift(newImageItem);
-      try {
-        localStorage.setItem('nandu_flux_local_gallery', JSON.stringify(creations.slice(0, 40)));
-      } catch (_) {}
-      updateGalleryCounts();
+    const newImageItem = {
+      id: data.id || Date.now(),
+      imageUrl: data.image,
+      prompt: data.prompt || exactPrompt,
+      engine: data.engine || 'Cloudflare Flux.1 Schnell',
+      format: data.format || '1024x1024 Ultra HDR (8 Steps)',
+      duration: finalDuration,
+      steps: 8,
+      timestamp: data.timestamp || new Date().toLocaleString()
+    };
+    creations.unshift(newImageItem);
+    try {
+      localStorage.setItem('nandu_flux_local_gallery', JSON.stringify(creations.slice(0, 40)));
+    } catch (_) {}
+    updateGalleryCounts();
 
-      // 2. Show ONLY the newly generated image below the prompt in large size
-      displayLatestResult(newImageItem);
+    // 2. Show ONLY the newly generated image below the prompt in large size
+    displayLatestResult(newImageItem);
 
-      // If the gallery section is currently open, refresh it so all images + latest are visible
-      if (gallerySection && !gallerySection.classList.contains('hidden')) {
-        renderGallery();
-      }
+    // If the gallery section is currently open, refresh it so all images + latest are visible
+    if (gallerySection && !gallerySection.classList.contains('hidden')) {
+      renderGallery();
     }
 
     regenerateBtn.classList.remove('hidden');
-    
+
     if (isRegeneration) {
       showToast(`🔄 Fresh image generated & updated! (${finalDuration})`);
-      if (!previewModal.classList.contains('hidden') && newImageItem) {
+      if (!previewModal.classList.contains('hidden')) {
         openModal(newImageItem);
       }
     } else {
@@ -1017,10 +1030,11 @@ async function executeGeneration(promptText, isRegeneration = false) {
     showToast(`❌ ${err.message}`, 6000);
   } finally {
     clearInterval(timerInterval);
+    timerInterval = null;
     generateBtn.disabled = false;
     regenerateBtn.disabled = false;
     if (modalRegenerateBtn) modalRegenerateBtn.disabled = false;
-    generateBtn.innerHTML = `<span class="btn-icon">⚡</span><span class="btn-text">GENERATE IMAGE (1024×1024)</span>`;
+    generateBtn.innerHTML = `<span class="btn-icon">⚡</span><span class="btn-text">GENERATE IMAGE (1024×1024 · 8 STEPS ULTRA HDR)</span>`;
     loader.classList.add('hidden');
   }
 }

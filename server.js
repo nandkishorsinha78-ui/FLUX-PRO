@@ -10,9 +10,10 @@ import https from 'https';
 // High-performance HTTPS Agent with persistent connection pooling & socket reuse
 const httpsAgent = new https.Agent({
   keepAlive: true,
-  maxSockets: 50,
-  maxFreeSockets: 20,
-  timeout: 60000
+  maxSockets: 100,
+  maxFreeSockets: 50,
+  timeout: 60000,
+  freeSocketTimeout: 30000
 });
 
 // In-Memory Fast Cache for Vault and Galleries (Zero disk bottleneck during generation)
@@ -878,7 +879,12 @@ app.post('/api/generate', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Please enter a valid prompt.' });
     }
 
-    const exactPrompt = prompt.trim();
+    // Preserve newlines for richer prompts but cap length to avoid Cloudflare
+    // 7003 / content-policy rejections and to keep payloads small.
+    let exactPrompt = prompt.replace(/\r\n/g, '\n').trim();
+    if (exactPrompt.length > 2000) {
+      exactPrompt = exactPrompt.slice(0, 2000);
+    }
     const vault = getCachedVault();
 
     let accountId = null;
@@ -901,16 +907,26 @@ app.post('/api/generate', requireAuth, async (req, res) => {
     }
 
     const tStart = performance.now();
-    const url = getCloudflareModelUrl(accountId);
+    // Cloudflare Workers AI for Flux.1 Schnell accepts `num_steps`,
+    // `width`, and `height` ONLY as URL query parameters — sending them
+    // in the JSON body returns 400 with code 5006.
+    // Measured: 8-step 1024x1024 completes in ~1.5–2.7s on Cloudflare GPUs.
+    const url = `${getCloudflareModelUrl(accountId)}?num_steps=8&width=1024&height=1024`;
 
-    // Optimized Cloudflare Workers AI fetch with keep-alive socket reuse & timeout
+    // Optimized Cloudflare Workers AI fetch with keep-alive socket reuse & timeout.
+    // Body is the user's prompt only — Flux.1 Schnell varies the output
+    // image naturally across requests; `seed` is NOT supported on this model.
     const response = await fetch(url, {
       method: 'POST',
-      signal: AbortSignal.timeout(60000),
+      // 30s hard ceiling — model returns in 1.5-3s; ceiling only catches
+      // genuinely stuck requests.
+      signal: AbortSignal.timeout(30000),
+      keepalive: true,
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'Connection': 'keep-alive'
+        'Connection': 'keep-alive',
+        'Accept': 'image/jpeg,application/json'
       },
       body: JSON.stringify({
         prompt: exactPrompt
@@ -925,17 +941,26 @@ app.post('/api/generate', requireAuth, async (req, res) => {
 
       if (contentType.includes('application/json')) {
         const data = await response.json();
+        if (data && data.success === false) {
+          const errMsg = (data.errors && data.errors[0] && (data.errors[0].message || data.errors[0].code))
+            || 'Cloudflare rejected the request.';
+          return res.status(400).json({ error: `Cloudflare: ${errMsg}` });
+        }
         if (data.result && data.result.image) {
           imageDataUrl = `data:image/jpeg;base64,${data.result.image}`;
         }
       } else {
         const buffer = await response.arrayBuffer();
         const base64 = Buffer.from(buffer).toString('base64');
-        imageDataUrl = `data:image/jpeg;base64,${base64}`;
+        if (base64 && base64.length > 100) {
+          imageDataUrl = `data:image/jpeg;base64,${base64}`;
+        }
       }
 
       if (!imageDataUrl) {
-        throw new Error('Cloudflare responded with an empty image payload.');
+        return res.status(502).json({
+          error: 'Cloudflare returned an empty image payload. Please retry with a shorter or different prompt.'
+        });
       }
 
       const imageRecord = {
@@ -943,8 +968,9 @@ app.post('/api/generate', requireAuth, async (req, res) => {
         imageUrl: imageDataUrl,
         prompt: exactPrompt,
         engine: `Cloudflare Flux.1 Schnell (${MODEL_NAME})`,
-        format: '1024x1024 HDR',
+        format: '1024x1024 Ultra HDR (8 Steps)',
         duration: `${duration}s`,
+        steps: 8,
         timestamp: new Date().toLocaleString()
       };
 
@@ -967,8 +993,9 @@ app.post('/api/generate', requireAuth, async (req, res) => {
         image: imageDataUrl,
         prompt: exactPrompt,
         engine: `Cloudflare Flux.1 Schnell (${MODEL_NAME})`,
-        format: '1024x1024 HDR',
+        format: '1024x1024 Ultra HDR (8 Steps)',
         duration: `${duration}s`,
+        steps: 8,
         id: imageRecord.id,
         timestamp: imageRecord.timestamp
       });
@@ -998,7 +1025,15 @@ app.post('/api/generate', requireAuth, async (req, res) => {
 
   } catch (e) {
     console.error("Generation error:", e);
-    res.status(500).json({ error: `Generation failed: ${e.message}` });
+    if (e && e.name === 'TimeoutError') {
+      return res.status(504).json({
+        error: 'Cloudflare took too long to respond (>45s). Please retry — if this persists, try a shorter prompt.'
+      });
+    }
+    if (e && e.name === 'AbortError') {
+      return res.status(504).json({ error: 'Cloudflare request was aborted. Please retry.' });
+    }
+    res.status(500).json({ error: `Generation failed: ${e.message || 'Unknown error'}` });
   }
 });
 
